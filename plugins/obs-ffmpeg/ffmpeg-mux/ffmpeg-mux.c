@@ -807,8 +807,8 @@ static inline bool ffmpeg_mux_packet(struct ffmpeg_mux *ffm, uint8_t *buf,
 			ret, av_err2str(ret));
 	}
 
-	/* Treat "Invalid data found when processing input" as non-fatal */
-	if (ret == AVERROR_INVALIDDATA) {
+	/* Treat "Invalid data found when processing input" and "Invalid argument" as non-fatal */
+	if (ret == AVERROR_INVALIDDATA || ret == -EINVAL) {
 		return true;
 	}
 
@@ -857,15 +857,11 @@ int main(int argc, char *argv[])
 		return ret;
 	}
 
-	bool is_network = ffmpeg_mux_is_network(&ffm);
-
 	while (!fail && safe_read(&info, sizeof(info)) == sizeof(info)) {
 		resize_buf_resize(&rb, info.size);
 
 		if (safe_read(rb.buf, info.size) == info.size) {
-			bool packet_fail =
-				ffmpeg_mux_packet(&ffm, rb.buf, &info);
-			fail = is_network && packet_fail;
+			fail = !ffmpeg_mux_packet(&ffm, rb.buf, &info);
 		} else {
 			fail = true;
 		}
